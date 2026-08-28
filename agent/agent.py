@@ -24,6 +24,20 @@ from rag import ingest, retrieve  # noqa: E402
 CONFIG_PATH = Path(__file__).parent.parent / "router" / "model_config.json"
 RECURSION_LIMIT = 15
 
+IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".tif"}
+
+
+def _has_extractable_text(attachments: list[str] | None) -> bool:
+    """
+    Cheap heuristic: image files have no text layer, so they always need
+    vision. Anything else (e.g. a .txt/.pdf with a real text layer) is
+    assumed to have extractable text. PDF text-layer detection is out of
+    scope for this stub -- extend here if scanned PDFs need it later.
+    """
+    if not attachments:
+        return True
+    return Path(attachments[0]).suffix.lower() not in IMAGE_EXTENSIONS
+
 
 class AgentResult(TypedDict):
     final_answer: str
@@ -89,7 +103,11 @@ def run(
 ) -> AgentResult:
     trace: list[dict] = []
 
-    routing = route(query, attachments=attachments)
+    routing = route(
+        query,
+        attachments=attachments,
+        has_extractable_text=_has_extractable_text(attachments),
+    )
     trace.append({"step": "router_decision", "detail": routing})
 
     role = routing["role"]
