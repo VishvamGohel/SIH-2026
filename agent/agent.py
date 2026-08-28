@@ -10,10 +10,13 @@ tool calls and an uncapped retry loop is the most likely live-demo failure.
 """
 
 import json
+import os
+import tempfile
 from pathlib import Path
 from typing import TypedDict
 
 import ollama
+from PIL import Image
 
 import sys
 
@@ -32,6 +35,33 @@ RECURSION_LIMIT = 15
 RUNTIME_CONTEXT = 8192
 
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".tif"}
+
+# Vision token cost scales with image resolution -- an uncapped phone
+# photo can blow past RUNTIME_CONTEXT on its own and take minutes on
+# CPU. Downscale before sending; this is plenty for OCR-quality text.
+MAX_IMAGE_DIMENSION = 1280
+
+
+def _downscale_for_vision(image_path: str) -> str:
+    """
+    Resize an image so its longest side is at most MAX_IMAGE_DIMENSION,
+    preserving aspect ratio. Returns a path to the (possibly new,
+    temp-file) resized image; returns the original path unchanged if
+    it's already small enough.
+    """
+    with Image.open(image_path) as img:
+        width, height = img.size
+        if max(width, height) <= MAX_IMAGE_DIMENSION:
+            return image_path
+
+        scale = MAX_IMAGE_DIMENSION / max(width, height)
+        new_size = (int(width * scale), int(height * scale))
+        resized = img.convert("RGB").resize(new_size, Image.LANCZOS)
+
+        fd, temp_path = tempfile.mkstemp(suffix=".jpg")
+        os.close(fd)
+        resized.save(temp_path, "JPEG", quality=90)
+        return temp_path
 
 
 def _has_extractable_text(attachments: list[str] | None) -> bool:
@@ -69,6 +99,9 @@ def _run_vision_extraction(attachment_path: str, trace: list[dict]) -> dict:
     returns the summary for use in the current turn's answer.
     """
     vision_model = _model_for_role("vision")
+    resized_path = _downscale_for_vision(attachment_path)
+    if resized_path != attachment_path:
+        trace.append({"step": "image_downscaled", "detail": f"resized to max {MAX_IMAGE_DIMENSION}px"})
 
     response = ollama.chat(
         model=vision_model,
@@ -80,13 +113,16 @@ def _run_vision_extraction(attachment_path: str, trace: list[dict]) -> dict:
                     '{"document_type": str, "key_findings": [str], '
                     '"recommended_action": str, "raw_text": str}'
                 ),
-                "images": [attachment_path],
+                "images": [resized_path],
             }
         ],
         format="json",
         options={"num_ctx": RUNTIME_CONTEXT},
     )
     trace.append({"step": "vision_extraction", "detail": f"model={vision_model}"})
+
+    if resized_path != attachment_path:
+        os.remove(resized_path)
 
     extracted = json.loads(response["message"]["content"])
 
