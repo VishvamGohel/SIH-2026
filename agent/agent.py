@@ -24,6 +24,13 @@ from rag import ingest, retrieve  # noqa: E402
 CONFIG_PATH = Path(__file__).parent.parent / "router" / "model_config.json"
 RECURSION_LIMIT = 15
 
+# Ollama defaults to a 4096-token runtime context regardless of what a
+# model architecturally supports -- an image alone can exceed that, so
+# every chat call must request a larger window explicitly. Kept modest
+# (not the model's full context_window from model_config.json) to stay
+# within Machine A's 4GB VRAM budget -- KV cache scales with this.
+RUNTIME_CONTEXT = 8192
+
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".tif"}
 
 
@@ -77,6 +84,7 @@ def _run_vision_extraction(attachment_path: str, trace: list[dict]) -> dict:
             }
         ],
         format="json",
+        options={"num_ctx": RUNTIME_CONTEXT},
     )
     trace.append({"step": "vision_extraction", "detail": f"model={vision_model}"})
 
@@ -128,6 +136,7 @@ def run(
             {"role": "system", "content": f"Relevant context:\n{context}" if context else ""},
             {"role": "user", "content": query},
         ],
+        options={"num_ctx": RUNTIME_CONTEXT},
     )
     final_answer = response["message"]["content"]
     trace.append({"step": "model_response", "detail": f"model={model}"})
