@@ -8,6 +8,7 @@ import os
 import pytest
 from PIL import Image
 
+import agent
 from agent import _downscale_for_vision, run
 
 
@@ -79,6 +80,70 @@ def test_downscale_resizes_large_image():
     finally:
         if result_path != image_path and os.path.exists(result_path):
             os.remove(result_path)
+
+
+def _make_test_image():
+    scratch_dir = os.environ.get("TEMP", ".")
+    image_path = os.path.join(scratch_dir, "retry_test_image.png")
+    Image.new("RGB", (100, 100), color="white").save(image_path)
+    return image_path
+
+
+def test_vision_retry_recovers_from_malformed_json(monkeypatch):
+    """
+    Regression test for the recursion/retry-cap requirement: the graph
+    must retry vision extraction on malformed JSON rather than crashing,
+    and succeed once the model produces valid JSON.
+    """
+    image_path = _make_test_image()
+    call_count = {"n": 0}
+    real_chat = agent.ollama.chat
+
+    def fake_chat(*args, **kwargs):
+        if "images" not in kwargs["messages"][0]:
+            return real_chat(*args, **kwargs)  # let the final generate() call hit the real model
+        call_count["n"] += 1
+        if call_count["n"] < 3:
+            return {"message": {"content": "not valid json{{{"}}
+        return {
+            "message": {
+                "content": '{"document_type": "test", "key_findings": ["ok"], '
+                '"recommended_action": "none", "raw_text": "test content"}'
+            }
+        }
+
+    monkeypatch.setattr(agent.ollama, "chat", fake_chat)
+
+    result = run("What does this say?", user_id="test-user", attachments=[image_path])
+
+    steps = [e["step"] for e in result["trace"]]
+    assert steps.count("vision_extraction_failed") == 2
+    assert "rag_ingest" in steps
+    assert call_count["n"] == 3
+
+
+def test_vision_gives_up_gracefully_after_max_retries(monkeypatch):
+    """
+    Regression test: once malformed JSON exceeds MAX_STEP_RETRIES, the
+    graph must fail gracefully with a clear message instead of crashing
+    or looping forever.
+    """
+    image_path = _make_test_image()
+    call_count = {"n": 0}
+
+    def always_broken_chat(*args, **kwargs):
+        call_count["n"] += 1
+        return {"message": {"content": "still not valid json"}}
+
+    monkeypatch.setattr(agent.ollama, "chat", always_broken_chat)
+
+    result = run("What does this say?", user_id="test-user", attachments=[image_path])
+
+    steps = [e["step"] for e in result["trace"]]
+    assert steps.count("vision_extraction_failed") == agent.MAX_STEP_RETRIES
+    assert "failed" in steps
+    assert call_count["n"] == agent.MAX_STEP_RETRIES
+    assert len(result["final_answer"]) > 0  # graceful message, not a crash
 
 
 if __name__ == "__main__":
