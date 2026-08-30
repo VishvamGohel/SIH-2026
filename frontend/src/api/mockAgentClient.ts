@@ -21,6 +21,13 @@ function classify(query: string, hasImage: boolean): "general" | "code" | "visio
 }
 
 export async function mockRun({ query, attachments }: AgentRequest): Promise<AgentResult> {
+  // Manual escape hatch for exercising the error UI during dev --
+  // type "simulate error" as the query.
+  if (query.toLowerCase().includes("simulate error")) {
+    await delay(500)
+    throw new Error("The model didn't respond in time. This is a simulated failure for UI testing.")
+  }
+
   const hasImage = !!attachments?.some((f) =>
     IMAGE_EXTENSIONS.some((ext) => f.name.toLowerCase().endsWith(ext)),
   )

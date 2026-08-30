@@ -65,6 +65,30 @@ export function ChevronIcon({ className }: IconProps) {
   )
 }
 
+export function AlertIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" className={className} aria-hidden="true">
+      <path
+        d="M10 3.5 17.5 16h-15L10 3.5Z"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinejoin="round"
+      />
+      <path d="M10 8.5v3.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+      <circle cx="10" cy="14.25" r="0.9" fill="currentColor" />
+    </svg>
+  )
+}
+
+export function ScanIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" className={className} aria-hidden="true">
+      <path d="M4 7V5a1 1 0 0 1 1-1h2M16 7V5a1 1 0 0 1-1-1h-2M4 13v2a1 1 0 0 0 1 1h2M16 13v2a1 1 0 0 1-1 1h-2" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+      <path d="M4 10h12" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeDasharray="1.5 2.2" />
+    </svg>
+  )
+}
+
 export function XIcon({ className }: IconProps) {
   return (
     <svg viewBox="0 0 20 20" fill="none" className={className} aria-hidden="true">

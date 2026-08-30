@@ -42,6 +42,7 @@ export function useAgentChat() {
         role: "assistant",
         content: "",
         pending: true,
+        expectingVision: attachmentNames.length > 0,
       }
 
       // Decide the session id up front (rather than inside the setSessions
@@ -102,7 +103,9 @@ export function useAgentChat() {
               ? {
                   ...s,
                   messages: s.messages.map((m) =>
-                    m.id === pendingMessage.id ? { ...m, content: `Error: ${message}`, pending: false } : m,
+                    m.id === pendingMessage.id
+                      ? { ...m, content: message, pending: false, isError: true }
+                      : m,
                   ),
                 }
               : s,

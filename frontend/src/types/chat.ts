@@ -7,6 +7,8 @@ export interface ChatMessage {
   attachmentNames?: string[]
   trace?: TraceEntry[]
   pending?: boolean
+  expectingVision?: boolean
+  isError?: boolean
 }
 
 export interface Session {
