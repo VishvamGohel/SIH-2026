@@ -146,5 +146,62 @@ def test_vision_gives_up_gracefully_after_max_retries(monkeypatch):
     assert len(result["final_answer"]) > 0  # graceful message, not a crash
 
 
+def test_run_with_use_rag_false_skips_retrieval():
+    """
+    Regression test for the RAG toggle: use_rag=False must skip
+    retrieve_node entirely (no rag_retrieval step) and log rag_skipped
+    instead, rather than silently retrieving anyway.
+    """
+    result = run("Explain what a checksum is.", user_id="test-user", use_rag=False)
+    steps = [e["step"] for e in result["trace"]]
+    assert "rag_skipped" in steps
+    assert "rag_retrieval" not in steps
+
+
+def test_run_with_use_rag_true_retrieves():
+    result = run("Explain what a checksum is.", user_id="test-user", use_rag=True)
+    steps = [e["step"] for e in result["trace"]]
+    assert "rag_retrieval" in steps
+    assert "rag_skipped" not in steps
+
+
+def test_rag_skipped_not_logged_for_vision():
+    """
+    The RAG toggle is about searching *other* stored documents, not
+    about whether an attached image gets read -- vision extraction
+    must proceed regardless of use_rag.
+    """
+    image_path = _make_test_image()
+    result = run("What does this say?", user_id="test-user", attachments=[image_path], use_rag=False)
+    steps = [e["step"] for e in result["trace"]]
+    assert "rag_skipped" not in steps
+    assert "vision_extraction" in steps
+
+
+def test_retrieve_filters_irrelevant_chunks(monkeypatch):
+    """
+    rag.retrieve() must drop chunks beyond RELEVANCE_THRESHOLD rather
+    than always returning the top-k regardless of actual relevance --
+    a query unrelated to anything ingested should surface as zero
+    hits, not the k least-bad matches.
+    """
+    import rag
+
+    def fake_query(*args, **kwargs):
+        return {
+            "documents": [["irrelevant chunk one", "irrelevant chunk two"]],
+            "metadatas": [[{}, {}]],
+            "distances": [[0.9, 1.4]],  # both beyond RELEVANCE_THRESHOLD (0.6)
+        }
+
+    class FakeCollection:
+        def query(self, *args, **kwargs):
+            return fake_query()
+
+    monkeypatch.setattr(rag, "_get_collection", lambda: FakeCollection())
+    hits = rag.retrieve("some unrelated query")
+    assert hits == []
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

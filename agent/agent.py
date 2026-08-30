@@ -5,7 +5,12 @@ Dharm's backend calls run() directly -- treat its signature as a
 contract; flag before changing it.
 
 Graph shape:
-    plan -> (vision_extract | retrieve) -> generate -> END
+    plan -> (vision_extract | retrieve | generate) -> generate -> END
+    use_rag=False (or role == vision) skips retrieve entirely -- plan
+    routes straight to generate. RAG retrieval also drops chunks beyond
+    RELEVANCE_THRESHOLD (see rag.py), so a query unrelated to anything
+    ingested still gets a normal answer from the model's own knowledge
+    rather than being polluted with the "closest but irrelevant" chunks.
     vision_extract loops back to itself on malformed JSON, up to
     MAX_STEP_RETRIES times, then falls through to a graceful "fail" node
     instead of crashing -- small models are more prone to malformed
@@ -96,6 +101,7 @@ class AgentState(TypedDict, total=False):
     query: str
     user_id: str
     attachments: list[str] | None
+    use_rag: bool
     trace: list[dict]
     role: str
     context: str
@@ -159,6 +165,10 @@ def plan_node(state: AgentState) -> AgentState:
     )
     state["trace"].append({"step": "router_decision", "detail": routing})
     state["role"] = routing["role"]
+
+    if routing["role"] != "vision" and not state.get("use_rag", True):
+        state["trace"].append({"step": "rag_skipped", "detail": "disabled by user"})
+
     return state
 
 
@@ -201,7 +211,8 @@ def route_after_vision(state: AgentState) -> str:
 
 def retrieve_node(state: AgentState) -> AgentState:
     hits = retrieve(state["query"], k=5)
-    state["trace"].append({"step": "rag_retrieval", "detail": f"{len(hits)} chunks retrieved"})
+    detail = f"{len(hits)} chunks retrieved" if hits else "0 relevant chunks found"
+    state["trace"].append({"step": "rag_retrieval", "detail": detail})
     state["context"] = "\n\n".join(h["text"] for h in hits)
     return state
 
@@ -247,6 +258,8 @@ def fail_node(state: AgentState) -> AgentState:
 def _route_after_plan(state: AgentState) -> str:
     if state["role"] == "vision" and state.get("attachments"):
         return "vision_extract"
+    if not state.get("use_rag", True):
+        return "generate"
     return "retrieve"
 
 
@@ -259,7 +272,11 @@ def _build_graph():
     graph.add_node("fail", fail_node)
 
     graph.set_entry_point("plan")
-    graph.add_conditional_edges("plan", _route_after_plan, {"vision_extract": "vision_extract", "retrieve": "retrieve"})
+    graph.add_conditional_edges(
+        "plan",
+        _route_after_plan,
+        {"vision_extract": "vision_extract", "retrieve": "retrieve", "generate": "generate"},
+    )
     graph.add_conditional_edges(
         "vision_extract", route_after_vision, {"generate": "generate", "vision_extract": "vision_extract", "fail": "fail"}
     )
@@ -279,11 +296,13 @@ def run(
     query: str,
     user_id: str,
     attachments: list[str] | None = None,
+    use_rag: bool = True,
 ) -> AgentResult:
     initial_state: AgentState = {
         "query": query,
         "user_id": user_id,
         "attachments": attachments,
+        "use_rag": use_rag,
         "trace": [],
     }
 
