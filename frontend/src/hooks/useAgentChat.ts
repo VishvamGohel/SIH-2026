@@ -12,16 +12,29 @@ function truncateTitle(text: string, max = 42): string {
   return clean.length > max ? `${clean.slice(0, max - 1)}…` : clean
 }
 
-export function useAgentChat() {
+interface UseAgentChatOptions {
+  /** Called once a message finishes successfully, so callers (e.g. the
+   * canvas panel) can react to the final content without needing to
+   * diff session state themselves. */
+  onMessageResolved?: (message: ChatMessage) => void
+}
+
+export function useAgentChat({ onMessageResolved }: UseAgentChatOptions = {}) {
   const [sessions, setSessions] = useState<Session[]>([])
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
   const [documents, setDocuments] = useState<KnowledgeDoc[]>([])
+  const [useRag, setUseRag] = useState(true)
 
   const activeSession = sessions.find((s) => s.id === activeSessionId) ?? null
 
   const newTask = useCallback(() => {
     setActiveSessionId(null)
+    setUseRag(true)
+  }, [])
+
+  const toggleRag = useCallback(() => {
+    setUseRag((prev) => !prev)
   }, [])
 
   const selectSession = useCallback((id: string) => {
@@ -70,7 +83,7 @@ export function useAgentChat() {
 
       setPending(true)
       try {
-        const result = await runAgent({ query, user_id: "demo-user", attachments })
+        const result = await runAgent({ query, user_id: "demo-user", attachments, use_rag: useRag })
 
         const wasVisionProcessed = result.trace.some((t) => t.step === "vision_extraction")
         if (wasVisionProcessed && attachmentNames.length > 0) {
@@ -81,20 +94,21 @@ export function useAgentChat() {
           })
         }
 
+        const resolvedMessage: ChatMessage = {
+          ...pendingMessage,
+          content: result.final_answer,
+          trace: result.trace,
+          pending: false,
+        }
+
         setSessions((prev) =>
           prev.map((s) =>
             s.id === sessionId
-              ? {
-                  ...s,
-                  messages: s.messages.map((m) =>
-                    m.id === pendingMessage.id
-                      ? { ...m, content: result.final_answer, trace: result.trace, pending: false }
-                      : m,
-                  ),
-                }
+              ? { ...s, messages: s.messages.map((m) => (m.id === pendingMessage.id ? resolvedMessage : m)) }
               : s,
           ),
         )
+        onMessageResolved?.(resolvedMessage)
       } catch (err) {
         const message = err instanceof Error ? err.message : "Something went wrong."
         setSessions((prev) =>
@@ -115,7 +129,7 @@ export function useAgentChat() {
         setPending(false)
       }
     },
-    [activeSessionId],
+    [activeSessionId, useRag, onMessageResolved],
   )
 
   return {
@@ -127,5 +141,7 @@ export function useAgentChat() {
     selectSession,
     submit,
     documents,
+    useRag,
+    toggleRag,
   }
 }

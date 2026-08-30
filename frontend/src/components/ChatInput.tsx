@@ -1,12 +1,14 @@
 import { useRef, useState, type KeyboardEvent } from "react"
-import { PlusIcon, SendIcon, XIcon } from "./icons"
+import { DatabaseIcon, PlusIcon, SendIcon, XIcon } from "./icons"
 
 interface ChatInputProps {
   onSubmit: (query: string, attachments: File[]) => void
   disabled?: boolean
+  useRag: boolean
+  onToggleRag: () => void
 }
 
-export function ChatInput({ onSubmit, disabled }: ChatInputProps) {
+export function ChatInput({ onSubmit, disabled, useRag, onToggleRag }: ChatInputProps) {
   const [value, setValue] = useState("")
   const [attachments, setAttachments] = useState<File[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -73,6 +75,20 @@ export function ChatInput({ onSubmit, disabled }: ChatInputProps) {
           aria-label="Attach an image"
         >
           <PlusIcon className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          onClick={onToggleRag}
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-ember ${
+            useRag
+              ? "border-ember/40 bg-ember-bg text-ember"
+              : "border-white/10 text-ash hover:bg-white/5 hover:text-bone"
+          }`}
+          aria-label={useRag ? "Document search on — click to turn off" : "Document search off — click to turn on"}
+          aria-pressed={useRag}
+          title={useRag ? "Searching your documents" : "Not searching your documents"}
+        >
+          <DatabaseIcon className="h-4 w-4" />
         </button>
         <input
           ref={fileInputRef}

@@ -5,6 +5,7 @@
 export type TraceStep =
   | "router_decision"
   | "rag_retrieval"
+  | "rag_skipped"
   | "vision_extraction"
   | "vision_extraction_failed"
   | "image_downscaled"
@@ -39,4 +40,5 @@ export interface AgentRequest {
   query: string
   user_id: string
   attachments?: File[]
+  use_rag?: boolean
 }

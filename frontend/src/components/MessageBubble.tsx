@@ -1,9 +1,15 @@
 import { AlertIcon, DocumentIcon, ScanIcon } from "./icons"
+import { CodeReferenceCard } from "./CodeReferenceCard"
 import { TraceView } from "./TraceView"
+import { parseCodeBlocks } from "../lib/parseCodeBlocks"
+import { extractModel } from "../lib/messageUtils"
 import type { ChatMessage } from "../types/chat"
+import type { CanvasContent } from "../types/canvas"
 
 interface MessageBubbleProps {
   message: ChatMessage
+  activeCanvasId?: string | null
+  onOpenCanvas?: (content: CanvasContent) => void
 }
 
 function PendingContent({ expectingVision }: { expectingVision?: boolean }) {
@@ -24,8 +30,15 @@ function PendingContent({ expectingVision }: { expectingVision?: boolean }) {
   )
 }
 
-export function MessageBubble({ message }: MessageBubbleProps) {
+export function MessageBubble({ message, activeCanvasId, onOpenCanvas }: MessageBubbleProps) {
   const isUser = message.role === "user"
+  const hasNoRagMatch = message.trace?.some(
+    (t) => t.step === "rag_retrieval" && t.detail === "0 relevant chunks found",
+  )
+
+  const segments =
+    !isUser && !message.pending && !message.isError ? parseCodeBlocks(message.content) : null
+  const model = extractModel(message)
 
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
@@ -43,28 +56,60 @@ export function MessageBubble({ message }: MessageBubbleProps) {
             ))}
           </div>
         )}
-        <div
-          className={
-            isUser
-              ? "rounded-2xl rounded-tr-sm bg-ember px-4 py-2.5 text-[15px] text-obsidian"
-              : message.isError
-                ? "flex items-start gap-2 rounded-2xl rounded-tl-sm border border-ember-dim/40 bg-slate-ember px-4 py-2.5 text-[15px] text-bone"
-                : "rounded-2xl rounded-tl-sm bg-slate-ember px-4 py-2.5 text-[15px] text-bone"
-          }
-        >
-          {message.pending ? (
-            <PendingContent expectingVision={message.expectingVision} />
-          ) : message.isError ? (
-            <>
-              <AlertIcon className="mt-0.5 h-4 w-4 shrink-0 text-ember" />
-              <p className="whitespace-pre-wrap leading-relaxed text-ash">
-                Couldn't complete this request. {message.content}
-              </p>
-            </>
-          ) : (
-            <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
-          )}
-        </div>
+
+        {message.pending || message.isError || !segments ? (
+          <div
+            className={
+              isUser
+                ? "rounded-2xl rounded-tr-sm bg-ember px-4 py-2.5 text-[15px] text-obsidian"
+                : message.isError
+                  ? "flex items-start gap-2 rounded-2xl rounded-tl-sm border border-ember-dim/40 bg-slate-ember px-4 py-2.5 text-[15px] text-bone"
+                  : "rounded-2xl rounded-tl-sm bg-slate-ember px-4 py-2.5 text-[15px] text-bone"
+            }
+          >
+            {message.pending ? (
+              <PendingContent expectingVision={message.expectingVision} />
+            ) : message.isError ? (
+              <>
+                <AlertIcon className="mt-0.5 h-4 w-4 shrink-0 text-ember" />
+                <p className="whitespace-pre-wrap leading-relaxed text-ash">
+                  Couldn't complete this request. {message.content}
+                </p>
+              </>
+            ) : (
+              <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
+            )}
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {segments.map((segment, i) =>
+              segment.type === "text" ? (
+                <div key={i} className="rounded-2xl rounded-tl-sm bg-slate-ember px-4 py-2.5 text-[15px] text-bone">
+                  <p className="whitespace-pre-wrap leading-relaxed">{segment.content}</p>
+                </div>
+              ) : (
+                <CodeReferenceCard
+                  key={i}
+                  segment={segment}
+                  isActive={activeCanvasId === `${message.id}:${i}`}
+                  onOpen={() =>
+                    onOpenCanvas?.({
+                      id: `${message.id}:${i}`,
+                      language: segment.language,
+                      code: segment.code,
+                      model,
+                    })
+                  }
+                />
+              ),
+            )}
+          </div>
+        )}
+
+        {hasNoRagMatch && (
+          <p className="mt-1.5 px-1 text-xs text-ash/60">No matching documents — answered from general knowledge</p>
+        )}
+
         {!isUser && message.trace && <TraceView trace={message.trace} />}
       </div>
     </div>

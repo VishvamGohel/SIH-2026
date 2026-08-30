@@ -20,13 +20,15 @@ function classify(query: string, hasImage: boolean): "general" | "code" | "visio
   return "general"
 }
 
-export async function mockRun({ query, attachments }: AgentRequest): Promise<AgentResult> {
-  // Manual escape hatch for exercising the error UI during dev --
-  // type "simulate error" as the query.
-  if (query.toLowerCase().includes("simulate error")) {
+export async function mockRun({ query, attachments, use_rag = true }: AgentRequest): Promise<AgentResult> {
+  // Manual escape hatches for exercising states that are rare/hard to
+  // trigger organically from the real backend during dev.
+  const lowerQuery = query.toLowerCase()
+  if (lowerQuery.includes("simulate error")) {
     await delay(500)
     throw new Error("The model didn't respond in time. This is a simulated failure for UI testing.")
   }
+  const forceNoMatch = lowerQuery.includes("no rag match")
 
   const hasImage = !!attachments?.some((f) =>
     IMAGE_EXTENSIONS.some((ext) => f.name.toLowerCase().endsWith(ext)),
@@ -40,6 +42,10 @@ export async function mockRun({ query, attachments }: AgentRequest): Promise<Age
   })
   await delay(300)
 
+  if (role !== "vision" && !use_rag) {
+    trace.push({ step: "rag_skipped", detail: "disabled by user" })
+  }
+
   let finalAnswer: string
 
   if (role === "vision") {
@@ -51,14 +57,34 @@ export async function mockRun({ query, attachments }: AgentRequest): Promise<Age
     finalAnswer =
       "Based on the attached document: the inspection notes minor corrosion on the primary valve and recommends seal replacement within 30 days. (mock response -- real backend not yet connected)"
   } else if (role === "code") {
+    if (use_rag) {
+      trace.push({ step: "rag_retrieval", detail: forceNoMatch ? "0 relevant chunks found" : "1 chunks retrieved" })
+    }
     await delay(700)
     finalAnswer =
-      "```python\ndef reverse_string(s: str) -> str:\n    return s[::-1]\n```\n(mock response -- real backend not yet connected)"
+      "Here's a reversible string utility with a couple of edge cases handled:\n\n" +
+      "```python\n" +
+      "def reverse_string(s: str) -> str:\n" +
+      '    """Reverse a string, safe for empty input."""\n' +
+      "    if not s:\n" +
+      "        return s\n" +
+      "    return s[::-1]\n\n\n" +
+      "def is_palindrome(s: str) -> bool:\n" +
+      "    normalized = s.lower().replace(\" \", \"\")\n" +
+      "    return normalized == reverse_string(normalized)\n" +
+      "```\n\n" +
+      "The palindrome check reuses `reverse_string` rather than duplicating the slice logic. " +
+      "(mock response -- real backend not yet connected)"
+  } else if (use_rag) {
+    trace.push({ step: "rag_retrieval", detail: forceNoMatch ? "0 relevant chunks found" : "3 chunks retrieved" })
+    await delay(700)
+    finalAnswer = forceNoMatch
+      ? "I couldn't find anything in your documents about this, so here's a general answer instead: this depends on the specific context, but typically the standard approach applies. (mock response -- real backend not yet connected)"
+      : "According to the retrieved documents, the recommended action should be completed within the stated timeframe. (mock response -- real backend not yet connected)"
   } else {
-    trace.push({ step: "rag_retrieval", detail: "3 chunks retrieved" })
     await delay(700)
     finalAnswer =
-      "According to the retrieved documents, the recommended action should be completed within the stated timeframe. (mock response -- real backend not yet connected)"
+      "Here's a general answer without consulting your documents: this depends on the specific context, but typically the standard approach applies. (mock response -- real backend not yet connected)"
   }
 
   trace.push({ step: "model_response", detail: `model=${role === "code" ? "qwen2.5-coder:3b" : "qwen3:1.7b"}` })

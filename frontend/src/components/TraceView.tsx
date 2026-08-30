@@ -3,6 +3,7 @@ import type { TraceEntry } from "../types/agent"
 const STEP_LABELS: Record<string, string> = {
   router_decision: "Routed",
   rag_retrieval: "Retrieved",
+  rag_skipped: "Skipped document search",
   vision_extraction: "Read document",
   vision_extraction_failed: "Retry — malformed output",
   image_downscaled: "Resized image",

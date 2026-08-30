@@ -2,13 +2,15 @@ import { ChatInput } from "./ChatInput"
 
 interface EmptyStateHeroProps {
   onSubmit: (query: string, attachments: File[]) => void
+  useRag: boolean
+  onToggleRag: () => void
 }
 
 // CSS-only stand-in for the painterly poster artwork: a warm ember glow
 // emanating from one point in an otherwise unlit room, over a faint
 // blueprint grid (the engineering-drawing world this product actually
 // lives in), with a grain overlay for the poster texture.
-export function EmptyStateHero({ onSubmit }: EmptyStateHeroProps) {
+export function EmptyStateHero({ onSubmit, useRag, onToggleRag }: EmptyStateHeroProps) {
   return (
     <div className="blueprint-grid grain relative flex flex-1 flex-col items-center justify-center overflow-hidden px-6">
       <div
@@ -37,7 +39,7 @@ export function EmptyStateHero({ onSubmit }: EmptyStateHeroProps) {
           </p>
         </div>
         <div className="w-full">
-          <ChatInput onSubmit={onSubmit} />
+          <ChatInput onSubmit={onSubmit} useRag={useRag} onToggleRag={onToggleRag} />
         </div>
       </div>
     </div>
