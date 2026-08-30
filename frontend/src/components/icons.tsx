@@ -113,6 +113,41 @@ export function ScanIcon({ className }: IconProps) {
   )
 }
 
+export function PdfIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" className={className} aria-hidden="true">
+      <path
+        d="M6 3.5h6l3 3v10a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-12a1 1 0 0 1 1-1Z"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinejoin="round"
+      />
+      <path d="M12 3.5V7h3" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
+      <path
+        d="M6.3 14.5v-3.2h.9c.6 0 1 .4 1 1s-.4 1-1 1h-.9m3.5 1.2v-3.2h.8c.9 0 1.4.6 1.4 1.6s-.5 1.6-1.4 1.6h-.8Zm4-3.2h-1.5v3.2m0-1.6h1.3"
+        stroke="currentColor"
+        strokeWidth="0.9"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
+export function ActivityIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" className={className} aria-hidden="true">
+      <path
+        d="M2.5 10h3l1.5-5 3 10 1.5-5h3"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
 export function XIcon({ className }: IconProps) {
   return (
     <svg viewBox="0 0 20 20" fill="none" className={className} aria-hidden="true">
