@@ -1,6 +1,7 @@
 import { useEffect } from "react"
-import { DocumentIcon, PlusIcon, SidebarToggleIcon } from "./icons"
+import { DocumentIcon, ImageIcon, PdfIcon, PlusIcon, SidebarToggleIcon } from "./icons"
 import { Tooltip } from "./Tooltip"
+import type { FileKind } from "../lib/fileKind"
 
 export interface SessionSummary {
   id: string
@@ -9,7 +10,19 @@ export interface SessionSummary {
 
 export interface KnowledgeDoc {
   name: string
-  kind: "image" | "document"
+  kind: FileKind
+  /** True only for documents actually embedded into the RAG store
+   * (currently: images that went through vision extraction). PDFs and
+   * other documents are listed here too since they were genuinely
+   * attached, but agent.py has no ingestion path for them yet -- shown
+   * as not searchable rather than silently omitted. */
+  indexed: boolean
+}
+
+const KIND_ICON: Record<FileKind, typeof DocumentIcon> = {
+  image: ImageIcon,
+  pdf: PdfIcon,
+  document: DocumentIcon,
 }
 
 interface SidebarProps {
@@ -116,12 +129,22 @@ export function Sidebar({
               <p className="px-1 text-xs text-ash/60">No documents ingested yet</p>
             ) : (
               <ul className="space-y-0.5">
-                {documents.map((doc) => (
-                  <li key={doc.name} className="flex items-center gap-2 truncate rounded-lg px-2 py-1.5 text-sm text-ash">
-                    <DocumentIcon className="h-3.5 w-3.5 shrink-0 text-ash/70" />
-                    <span className="truncate">{doc.name}</span>
-                  </li>
-                ))}
+                {documents.map((doc) => {
+                  const Icon = KIND_ICON[doc.kind]
+                  return (
+                    <li key={doc.name} className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-ash">
+                      <Icon className="h-3.5 w-3.5 shrink-0 text-ash/70" />
+                      <span className="min-w-0 flex-1 truncate" title={doc.name}>
+                        {doc.name}
+                      </span>
+                      {!doc.indexed && (
+                        <span className="shrink-0 text-[10px] text-ash/50" title="Not yet searchable via document search">
+                          not indexed
+                        </span>
+                      )}
+                    </li>
+                  )
+                })}
               </ul>
             )}
           </div>

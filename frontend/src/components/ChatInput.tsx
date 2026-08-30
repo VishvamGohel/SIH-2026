@@ -1,20 +1,15 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react"
-import { AttachMenu, type AttachKind } from "./AttachMenu"
+import { AttachMenu } from "./AttachMenu"
 import { DatabaseIcon, DocumentIcon, PdfIcon, PlusIcon, SendIcon, XIcon } from "./icons"
 import { Switch } from "./Switch"
 import { Tooltip } from "./Tooltip"
+import { getFileKind, type FileKind } from "../lib/fileKind"
 
 interface ChatInputProps {
   onSubmit: (query: string, attachments: File[]) => void
   disabled?: boolean
   useRag: boolean
   onToggleRag: () => void
-}
-
-function getFileKind(file: File): AttachKind {
-  if (file.type.startsWith("image/")) return "image"
-  if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) return "pdf"
-  return "document"
 }
 
 export function ChatInput({ onSubmit, disabled, useRag, onToggleRag }: ChatInputProps) {
@@ -61,7 +56,7 @@ export function ChatInput({ onSubmit, disabled, useRag, onToggleRag }: ChatInput
     }
   }
 
-  function handleAttachPick(_kind: AttachKind, accept: string) {
+  function handleAttachPick(_kind: FileKind, accept: string) {
     setMenuOpen(false)
     if (fileInputRef.current) {
       fileInputRef.current.accept = accept

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react"
 import { runAgent } from "../api"
 import type { KnowledgeDoc } from "../components/Sidebar"
+import { getFileKind } from "../lib/fileKind"
 import type { ChatMessage, Session } from "../types/chat"
 
 function newId() {
@@ -16,7 +17,7 @@ function truncateTitle(text: string, max = 42): string {
 // conversation history and knowledge base list -- previously pure
 // in-memory React state. Versioned key so a future shape change can
 // just bump the suffix instead of needing a migration.
-const STORAGE_KEY = "workbench:v1"
+const STORAGE_KEY = "workbench:v2"
 
 interface PersistedState {
   sessions: Session[]
@@ -106,7 +107,10 @@ export function useAgentChat({ onMessageResolved }: UseAgentChatOptions = {}) {
         role: "assistant",
         content: "",
         pending: true,
-        expectingVision: attachmentNames.length > 0,
+        // Only images actually go through vision extraction -- showing
+        // "Reading document..." for a PDF/doc attachment would imply
+        // it's being read when agent.py has no path for that yet.
+        expectingVision: attachments.length > 0 && getFileKind(attachments[0]) === "image",
         retryQuery: query,
       }
 
@@ -137,12 +141,21 @@ export function useAgentChat({ onMessageResolved }: UseAgentChatOptions = {}) {
       try {
         const result = await runAgent({ query, user_id: "demo-user", attachments, use_rag: useRag })
 
-        const wasVisionProcessed = result.trace.some((t) => t.step === "vision_extraction")
-        if (wasVisionProcessed && attachmentNames.length > 0) {
+        // Every attachment that was actually sent belongs in the
+        // Knowledge Base list, not just the ones the agent could
+        // process -- omitting PDFs/documents made it look like the
+        // upload silently vanished. "indexed" tracks whether it's
+        // genuinely searchable (only true for images that went through
+        // vision extraction today); anything else is still listed, just
+        // marked as not yet searchable rather than hidden.
+        if (attachments.length > 0) {
+          const wasVisionProcessed = result.trace.some((t) => t.step === "vision_extraction")
+          const file = attachments[0]
+          const kind = getFileKind(file)
           setDocuments((prev) => {
             const existing = new Set(prev.map((d) => d.name))
-            const additions = attachmentNames.filter((name) => !existing.has(name)).map((name) => ({ name, kind: "image" as const }))
-            return additions.length ? [...prev, ...additions] : prev
+            if (existing.has(file.name)) return prev
+            return [...prev, { name: file.name, kind, indexed: wasVisionProcessed }]
           })
         }
 

@@ -1,9 +1,8 @@
 import { useEffect, useRef } from "react"
 import { DocumentIcon, ImageIcon, PdfIcon } from "./icons"
+import type { FileKind } from "../lib/fileKind"
 
-export type AttachKind = "image" | "pdf" | "document"
-
-const OPTIONS: { kind: AttachKind; label: string; accept: string; icon: typeof ImageIcon }[] = [
+const OPTIONS: { kind: FileKind; label: string; accept: string; icon: typeof ImageIcon }[] = [
   { kind: "image", label: "Photo or scan", accept: "image/png,image/jpeg,image/bmp,image/tiff", icon: ImageIcon },
   { kind: "pdf", label: "PDF", accept: "application/pdf", icon: PdfIcon },
   {
@@ -15,7 +14,7 @@ const OPTIONS: { kind: AttachKind; label: string; accept: string; icon: typeof I
 ]
 
 interface AttachMenuProps {
-  onPick: (kind: AttachKind, accept: string) => void
+  onPick: (kind: FileKind, accept: string) => void
   onClose: () => void
 }
 
