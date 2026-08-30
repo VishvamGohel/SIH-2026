@@ -10,6 +10,7 @@ interface MessageBubbleProps {
   message: ChatMessage
   activeCanvasId?: string | null
   onOpenCanvas?: (content: CanvasContent) => void
+  onRetry?: (query: string) => void
 }
 
 function PendingContent({ expectingVision }: { expectingVision?: boolean }) {
@@ -30,7 +31,7 @@ function PendingContent({ expectingVision }: { expectingVision?: boolean }) {
   )
 }
 
-export function MessageBubble({ message, activeCanvasId, onOpenCanvas }: MessageBubbleProps) {
+export function MessageBubble({ message, activeCanvasId, onOpenCanvas, onRetry }: MessageBubbleProps) {
   const isUser = message.role === "user"
   const hasNoRagMatch = message.trace?.some(
     (t) => t.step === "rag_retrieval" && t.detail === "0 relevant chunks found",
@@ -72,9 +73,20 @@ export function MessageBubble({ message, activeCanvasId, onOpenCanvas }: Message
             ) : message.isError ? (
               <>
                 <AlertIcon className="mt-0.5 h-4 w-4 shrink-0 text-ember" />
-                <p className="whitespace-pre-wrap leading-relaxed text-ash">
-                  Couldn't complete this request. {message.content}
-                </p>
+                <div>
+                  <p className="whitespace-pre-wrap leading-relaxed text-ash">
+                    Couldn't complete this request. {message.content}
+                  </p>
+                  {message.retryQuery && onRetry && (
+                    <button
+                      type="button"
+                      onClick={() => onRetry(message.retryQuery!)}
+                      className="mt-2 rounded-md border border-white/10 px-2.5 py-1 text-xs text-bone transition-colors hover:bg-white/5 active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ember"
+                    >
+                      Retry
+                    </button>
+                  )}
+                </div>
               </>
             ) : (
               <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>

@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { runAgent } from "../api"
 import type { KnowledgeDoc } from "../components/Sidebar"
 import type { ChatMessage, Session } from "../types/chat"
@@ -12,6 +12,48 @@ function truncateTitle(text: string, max = 42): string {
   return clean.length > max ? `${clean.slice(0, max - 1)}…` : clean
 }
 
+// Per-browser persistence so a page refresh doesn't wipe the whole
+// conversation history and knowledge base list -- previously pure
+// in-memory React state. Versioned key so a future shape change can
+// just bump the suffix instead of needing a migration.
+const STORAGE_KEY = "workbench:v1"
+
+interface PersistedState {
+  sessions: Session[]
+  documents: KnowledgeDoc[]
+}
+
+// A message still "pending" in storage means the page was reloaded
+// mid-request -- the original in-flight call is gone, so it can never
+// resolve. Surface that honestly instead of leaving a permanently
+// stuck "..." bubble.
+function sanitizeSessions(sessions: Session[]): Session[] {
+  return sessions.map((s) => ({
+    ...s,
+    messages: s.messages.map((m) =>
+      m.pending
+        ? { ...m, pending: false, isError: true, content: "Interrupted by a page reload." }
+        : m,
+    ),
+  }))
+}
+
+function loadPersisted(): PersistedState {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (!raw) return { sessions: [], documents: [] }
+    const parsed = JSON.parse(raw)
+    return {
+      sessions: Array.isArray(parsed.sessions) ? sanitizeSessions(parsed.sessions) : [],
+      documents: Array.isArray(parsed.documents) ? parsed.documents : [],
+    }
+  } catch {
+    // Private browsing, corrupted data, storage disabled -- start fresh
+    // rather than crash the app over persistence.
+    return { sessions: [], documents: [] }
+  }
+}
+
 interface UseAgentChatOptions {
   /** Called once a message finishes successfully, so callers (e.g. the
    * canvas panel) can react to the final content without needing to
@@ -20,11 +62,20 @@ interface UseAgentChatOptions {
 }
 
 export function useAgentChat({ onMessageResolved }: UseAgentChatOptions = {}) {
-  const [sessions, setSessions] = useState<Session[]>([])
+  const [sessions, setSessions] = useState<Session[]>(() => loadPersisted().sessions)
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
-  const [documents, setDocuments] = useState<KnowledgeDoc[]>([])
+  const [documents, setDocuments] = useState<KnowledgeDoc[]>(() => loadPersisted().documents)
   const [useRag, setUseRag] = useState(true)
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ sessions, documents }))
+    } catch {
+      // Storage full or unavailable -- persistence is a convenience,
+      // not a requirement, so fail silently rather than break the app.
+    }
+  }, [sessions, documents])
 
   const activeSession = sessions.find((s) => s.id === activeSessionId) ?? null
 
@@ -56,6 +107,7 @@ export function useAgentChat({ onMessageResolved }: UseAgentChatOptions = {}) {
         content: "",
         pending: true,
         expectingVision: attachmentNames.length > 0,
+        retryQuery: query,
       }
 
       // Decide the session id up front (rather than inside the setSessions

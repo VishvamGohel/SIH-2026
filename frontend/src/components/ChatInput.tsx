@@ -1,4 +1,4 @@
-import { useRef, useState, type KeyboardEvent } from "react"
+import { useEffect, useRef, useState, type KeyboardEvent } from "react"
 import { DatabaseIcon, PlusIcon, SendIcon, XIcon } from "./icons"
 import { Switch } from "./Switch"
 import { Tooltip } from "./Tooltip"
@@ -12,9 +12,22 @@ interface ChatInputProps {
 
 export function ChatInput({ onSubmit, disabled, useRag, onToggleRag }: ChatInputProps) {
   const [value, setValue] = useState("")
-  const [attachments, setAttachments] = useState<File[]>([])
+  const [attachment, setAttachment] = useState<File | null>(null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  // Object URLs must be revoked or they leak -- swap them out whenever
+  // the attachment changes, and on unmount.
+  useEffect(() => {
+    if (!attachment) {
+      setPreviewUrl(null)
+      return
+    }
+    const url = URL.createObjectURL(attachment)
+    setPreviewUrl(url)
+    return () => URL.revokeObjectURL(url)
+  }, [attachment])
 
   function autoGrow(el: HTMLTextAreaElement) {
     el.style.height = "auto"
@@ -24,9 +37,9 @@ export function ChatInput({ onSubmit, disabled, useRag, onToggleRag }: ChatInput
   function handleSubmit() {
     const trimmed = value.trim()
     if (!trimmed || disabled) return
-    onSubmit(trimmed, attachments)
+    onSubmit(trimmed, attachment ? [attachment] : [])
     setValue("")
-    setAttachments([])
+    setAttachment(null)
     if (textareaRef.current) textareaRef.current.style.height = "auto"
   }
 
@@ -38,35 +51,33 @@ export function ChatInput({ onSubmit, disabled, useRag, onToggleRag }: ChatInput
   }
 
   function handleFilePick(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(e.target.files ?? [])
-    setAttachments((prev) => [...prev, ...files])
+    // Only one attachment is ever processed by the vision pipeline
+    // (agent.py reads attachments[0]) -- picking a new file replaces
+    // rather than adds, so the UI never implies multiple images will
+    // be read when only the first one actually will be.
+    const file = e.target.files?.[0]
+    if (file) setAttachment(file)
     e.target.value = ""
-  }
-
-  function removeAttachment(index: number) {
-    setAttachments((prev) => prev.filter((_, i) => i !== index))
   }
 
   return (
     <div className="w-full rounded-2xl border border-white/10 bg-slate-ember/90 backdrop-blur-sm shadow-[0_20px_50px_-20px_rgba(0,0,0,0.6)]">
-      {attachments.length > 0 && (
+      {attachment && (
         <div className="flex flex-wrap gap-2 px-4 pt-3">
-          {attachments.map((file, i) => (
-            <span
-              key={`${file.name}-${i}`}
-              className="pop-enter flex items-center gap-1.5 rounded-lg border border-white/10 bg-obsidian px-2.5 py-1 text-xs text-ash"
+          <span className="pop-enter flex items-center gap-2 rounded-lg border border-white/10 bg-obsidian py-1 pl-1 pr-2.5 text-xs text-ash">
+            {previewUrl && (
+              <img src={previewUrl} alt="" className="h-6 w-6 rounded object-cover" />
+            )}
+            {attachment.name}
+            <button
+              type="button"
+              onClick={() => setAttachment(null)}
+              className="rounded text-ash transition-colors hover:text-bone active:scale-90 focus-visible:outline-2 focus-visible:outline-ember"
+              aria-label={`Remove ${attachment.name}`}
             >
-              {file.name}
-              <button
-                type="button"
-                onClick={() => removeAttachment(i)}
-                className="rounded text-ash transition-colors hover:text-bone active:scale-90 focus-visible:outline-2 focus-visible:outline-ember"
-                aria-label={`Remove ${file.name}`}
-              >
-                <XIcon className="h-3 w-3" />
-              </button>
-            </span>
-          ))}
+              <XIcon className="h-3 w-3" />
+            </button>
+          </span>
         </div>
       )}
       <div className="flex items-end gap-2 p-3">
@@ -90,7 +101,6 @@ export function ChatInput({ onSubmit, disabled, useRag, onToggleRag }: ChatInput
           ref={fileInputRef}
           type="file"
           accept="image/png,image/jpeg,image/bmp,image/tiff"
-          multiple
           className="hidden"
           onChange={handleFilePick}
         />

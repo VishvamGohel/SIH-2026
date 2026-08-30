@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { XIcon } from "./icons"
 import type { CanvasContent } from "../types/canvas"
 
@@ -36,6 +36,14 @@ function CopyButton({ code }: { code: string }) {
 
 export function CodeCanvas({ content, onClose }: CodeCanvasProps) {
   const lineCount = content.code.split("\n").length
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose()
+    }
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [onClose])
 
   return (
     <aside className="canvas-enter fixed inset-0 z-40 flex flex-col border-l border-white/10 bg-slate-ember sm:relative sm:inset-auto sm:z-auto sm:w-[420px] sm:shrink-0">

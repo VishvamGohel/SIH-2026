@@ -9,6 +9,11 @@ export interface ChatMessage {
   pending?: boolean
   expectingVision?: boolean
   isError?: boolean
+  /** The original query text, carried onto the assistant message so a
+   * failed response can offer a "Retry" action without the caller
+   * needing to look up the paired user message. Attachments aren't
+   * retried -- the raw File isn't retained past the original send. */
+  retryQuery?: string
 }
 
 export interface Session {

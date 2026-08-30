@@ -1,3 +1,4 @@
+import { useEffect } from "react"
 import { DocumentIcon, PlusIcon, SidebarToggleIcon } from "./icons"
 import { Tooltip } from "./Tooltip"
 
@@ -30,6 +31,15 @@ export function Sidebar({
   onNewTask,
   documents,
 }: SidebarProps) {
+  useEffect(() => {
+    if (collapsed) return
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") onToggle()
+    }
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [collapsed, onToggle])
+
   return (
     <>
       {!collapsed && (
