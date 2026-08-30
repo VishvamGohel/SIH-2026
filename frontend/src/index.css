@@ -84,3 +84,59 @@ body {
     animation: none;
   }
 }
+
+@keyframes fade-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.message-enter {
+  animation: fade-slide-up 0.28s ease-out both;
+}
+
+@keyframes slide-in-right {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.canvas-enter {
+  animation: slide-in-right 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes slide-in-left {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.drawer-enter {
+  animation: slide-in-left 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.pop-enter {
+  animation: pop-in 0.15s ease-out both;
+}

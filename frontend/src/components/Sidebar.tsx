@@ -1,4 +1,5 @@
 import { DocumentIcon, PlusIcon, SidebarToggleIcon } from "./icons"
+import { Tooltip } from "./Tooltip"
 
 export interface SessionSummary {
   id: string
@@ -42,19 +43,21 @@ export function Sidebar({
         className={`flex h-full shrink-0 flex-col border-r border-white/10 bg-slate-ember transition-[width] duration-200 ${
           collapsed
             ? "w-14"
-            : "fixed inset-y-0 left-0 z-40 w-64 sm:relative sm:inset-auto sm:z-auto"
+            : "drawer-enter fixed inset-y-0 left-0 z-40 w-64 sm:relative sm:inset-auto sm:z-auto"
         }`}
       >
       <div className="flex items-center gap-2 p-3">
-        <button
-          type="button"
-          onClick={onToggle}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-ash hover:bg-white/5 hover:text-bone focus-visible:outline focus-visible:outline-2 focus-visible:outline-ember"
-          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          aria-expanded={!collapsed}
-        >
-          <SidebarToggleIcon className="h-4 w-4" />
-        </button>
+        <Tooltip label={collapsed ? "Expand sidebar" : "Collapse sidebar"}>
+          <button
+            type="button"
+            onClick={onToggle}
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-ash transition-colors hover:bg-white/5 hover:text-bone active:scale-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ember"
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            aria-expanded={!collapsed}
+          >
+            <SidebarToggleIcon className="h-4 w-4" />
+          </button>
+        </Tooltip>
         {!collapsed && <span className="font-display text-sm italic text-bone">Workbench</span>}
       </div>
 
@@ -62,7 +65,7 @@ export function Sidebar({
         <button
           type="button"
           onClick={onNewTask}
-          className={`flex w-full items-center gap-2 rounded-lg border border-white/10 px-2.5 py-2 text-sm text-bone transition-colors hover:bg-white/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ember ${
+          className={`flex w-full items-center gap-2 rounded-lg border border-white/10 px-2.5 py-2 text-sm text-bone transition-colors hover:bg-white/5 active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-ember ${
             collapsed ? "justify-center" : ""
           }`}
         >

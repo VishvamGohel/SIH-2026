@@ -41,7 +41,7 @@ export function MessageBubble({ message, activeCanvasId, onOpenCanvas }: Message
   const model = extractModel(message)
 
   return (
-    <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
+    <div className={`message-enter flex ${isUser ? "justify-end" : "justify-start"}`}>
       <div className={`max-w-[75ch] ${isUser ? "" : "w-full"}`}>
         {message.attachmentNames && message.attachmentNames.length > 0 && (
           <div className={`mb-1.5 flex flex-wrap gap-1.5 ${isUser ? "justify-end" : ""}`}>

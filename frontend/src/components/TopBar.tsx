@@ -17,7 +17,7 @@ export function TopBar({ title, hasCanvas, canvasOpen, onToggleCanvas }: TopBarP
           <button
             type="button"
             onClick={onToggleCanvas}
-            className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-ember ${
+            className={`pop-enter flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition-all active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ember ${
               canvasOpen
                 ? "border-ember/40 bg-ember-bg text-ember"
                 : "border-white/10 text-ash hover:bg-white/5 hover:text-bone"

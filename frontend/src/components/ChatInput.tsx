@@ -1,5 +1,7 @@
 import { useRef, useState, type KeyboardEvent } from "react"
 import { DatabaseIcon, PlusIcon, SendIcon, XIcon } from "./icons"
+import { Switch } from "./Switch"
+import { Tooltip } from "./Tooltip"
 
 interface ChatInputProps {
   onSubmit: (query: string, attachments: File[]) => void
@@ -52,13 +54,13 @@ export function ChatInput({ onSubmit, disabled, useRag, onToggleRag }: ChatInput
           {attachments.map((file, i) => (
             <span
               key={`${file.name}-${i}`}
-              className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-obsidian px-2.5 py-1 text-xs text-ash"
+              className="pop-enter flex items-center gap-1.5 rounded-lg border border-white/10 bg-obsidian px-2.5 py-1 text-xs text-ash"
             >
               {file.name}
               <button
                 type="button"
                 onClick={() => removeAttachment(i)}
-                className="text-ash hover:text-bone focus-visible:outline-2 focus-visible:outline-ember rounded"
+                className="rounded text-ash transition-colors hover:text-bone active:scale-90 focus-visible:outline-2 focus-visible:outline-ember"
                 aria-label={`Remove ${file.name}`}
               >
                 <XIcon className="h-3 w-3" />
@@ -68,28 +70,22 @@ export function ChatInput({ onSubmit, disabled, useRag, onToggleRag }: ChatInput
         </div>
       )}
       <div className="flex items-end gap-2 p-3">
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 text-ash transition-colors hover:bg-white/5 hover:text-bone focus-visible:outline focus-visible:outline-2 focus-visible:outline-ember"
-          aria-label="Attach an image"
-        >
-          <PlusIcon className="h-4 w-4" />
-        </button>
-        <button
-          type="button"
-          onClick={onToggleRag}
-          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-ember ${
-            useRag
-              ? "border-ember/40 bg-ember-bg text-ember"
-              : "border-white/10 text-ash hover:bg-white/5 hover:text-bone"
-          }`}
-          aria-label={useRag ? "Document search on — click to turn off" : "Document search off — click to turn on"}
-          aria-pressed={useRag}
-          title={useRag ? "Searching your documents" : "Not searching your documents"}
-        >
-          <DatabaseIcon className="h-4 w-4" />
-        </button>
+        <Tooltip label="Attach an image">
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 text-ash transition-colors hover:bg-white/5 hover:text-bone active:scale-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ember"
+            aria-label="Attach an image"
+          >
+            <PlusIcon className="h-4 w-4" />
+          </button>
+        </Tooltip>
+        <Tooltip label={useRag ? "Searching your documents" : "Document search is off"}>
+          <div className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-white/10 px-2.5">
+            <DatabaseIcon className={`h-3.5 w-3.5 transition-colors ${useRag ? "text-ember" : "text-ash"}`} />
+            <Switch checked={useRag} onChange={onToggleRag} label="Search your documents" />
+          </div>
+        </Tooltip>
         <input
           ref={fileInputRef}
           type="file"
@@ -111,15 +107,17 @@ export function ChatInput({ onSubmit, disabled, useRag, onToggleRag }: ChatInput
           placeholder="Ask anything..."
           className="max-h-40 flex-1 resize-none overflow-y-auto bg-transparent py-1.5 text-[15px] text-bone placeholder:text-ash/70 focus:outline-none [scrollbar-width:thin] [scrollbar-color:var(--color-ash)_transparent]"
         />
-        <button
-          type="button"
-          onClick={handleSubmit}
-          disabled={disabled || !value.trim()}
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-ember text-obsidian transition-opacity hover:opacity-90 disabled:opacity-30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-bone"
-          aria-label="Send"
-        >
-          <SendIcon className="h-4 w-4" />
-        </button>
+        <Tooltip label="Send message">
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={disabled || !value.trim()}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-ember text-obsidian transition-all hover:opacity-90 active:scale-90 disabled:opacity-30 disabled:active:scale-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-bone"
+            aria-label="Send"
+          >
+            <SendIcon className="h-4 w-4" />
+          </button>
+        </Tooltip>
       </div>
     </div>
   )

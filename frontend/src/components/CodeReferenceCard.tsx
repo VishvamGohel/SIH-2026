@@ -14,7 +14,7 @@ export function CodeReferenceCard({ segment, isActive, onOpen }: CodeReferenceCa
     <button
       type="button"
       onClick={onOpen}
-      className={`flex w-full items-center gap-3 rounded-xl border px-3.5 py-3 text-left transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-ember ${
+      className={`flex w-full items-center gap-3 rounded-xl border px-3.5 py-3 text-left transition-all active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-ember ${
         isActive ? "border-ember/50 bg-ember-bg" : "border-white/10 bg-obsidian/60 hover:bg-obsidian"
       }`}
     >
