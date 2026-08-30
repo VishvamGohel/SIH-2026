@@ -1,24 +1,22 @@
-import { useCallback, useState } from "react"
+import { useCallback, useMemo, useState } from "react"
 import { CodeCanvas } from "./components/CodeCanvas"
 import { ConversationView } from "./components/ConversationView"
 import { EmptyStateHero } from "./components/EmptyStateHero"
 import { Sidebar } from "./components/Sidebar"
 import { TopBar } from "./components/TopBar"
 import { useAgentChat } from "./hooks/useAgentChat"
-import { extractModel } from "./lib/messageUtils"
-import { parseCodeBlocks } from "./lib/parseCodeBlocks"
-import type { CanvasContent } from "./types/canvas"
+import { deriveCanvasFiles } from "./lib/canvasFiles"
 import type { ChatMessage } from "./types/chat"
 
 function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(
     () => typeof window !== "undefined" && window.innerWidth < 640,
   )
-  const [canvasContent, setCanvasContent] = useState<CanvasContent | null>(null)
   const [canvasOpen, setCanvasOpen] = useState(false)
+  const [activeCanvasFileId, setActiveCanvasFileId] = useState<string | null>(null)
 
-  const openCanvas = useCallback((content: CanvasContent) => {
-    setCanvasContent(content)
+  const openCanvas = useCallback((id: string) => {
+    setActiveCanvasFileId(id)
     setCanvasOpen(true)
   }, [])
 
@@ -26,17 +24,8 @@ function App() {
   // auto-open on the first code block of a freshly resolved response.
   const handleMessageResolved = useCallback(
     (message: ChatMessage) => {
-      const segments = parseCodeBlocks(message.content)
-      const firstCodeIndex = segments.findIndex((s) => s.type === "code")
-      if (firstCodeIndex === -1) return
-      const segment = segments[firstCodeIndex]
-      if (segment.type !== "code") return
-      openCanvas({
-        id: `${message.id}:${firstCodeIndex}`,
-        language: segment.language,
-        code: segment.code,
-        model: extractModel(message),
-      })
+      const files = deriveCanvasFiles([message])
+      if (files.length > 0) openCanvas(files[0].id)
     },
     [openCanvas],
   )
@@ -54,6 +43,15 @@ function App() {
     toggleRag,
   } = useAgentChat({ onMessageResolved: handleMessageResolved })
 
+  // Derived from the active session's message history, not tracked as
+  // separate mutable state -- every code block ever produced in this
+  // session, in order, browsable like files rather than a single
+  // anonymous snippet. Recomputes for free on session switch.
+  const canvasFiles = useMemo(
+    () => (activeSession ? deriveCanvasFiles(activeSession.messages) : []),
+    [activeSession],
+  )
+
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-obsidian text-bone">
       <Sidebar
@@ -68,7 +66,7 @@ function App() {
       <div className="flex flex-1 flex-col overflow-hidden">
         <TopBar
           title={activeSession?.title ?? "New task"}
-          hasCanvas={!!canvasContent}
+          hasCanvas={canvasFiles.length > 0}
           canvasOpen={canvasOpen}
           onToggleCanvas={() => setCanvasOpen((v) => !v)}
         />
@@ -79,15 +77,20 @@ function App() {
             pending={pending}
             useRag={useRag}
             onToggleRag={toggleRag}
-            activeCanvasId={canvasOpen ? canvasContent?.id : null}
+            activeCanvasId={canvasOpen ? activeCanvasFileId : null}
             onOpenCanvas={openCanvas}
           />
         ) : (
           <EmptyStateHero onSubmit={submit} useRag={useRag} onToggleRag={toggleRag} />
         )}
       </div>
-      {canvasOpen && canvasContent && (
-        <CodeCanvas content={canvasContent} onClose={() => setCanvasOpen(false)} />
+      {canvasOpen && canvasFiles.length > 0 && (
+        <CodeCanvas
+          files={canvasFiles}
+          activeFileId={activeCanvasFileId ?? canvasFiles[0].id}
+          onSelectFile={setActiveCanvasFileId}
+          onClose={() => setCanvasOpen(false)}
+        />
       )}
     </div>
   )

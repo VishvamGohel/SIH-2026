@@ -2,14 +2,12 @@ import { AlertIcon, DocumentIcon, ScanIcon } from "./icons"
 import { CodeReferenceCard } from "./CodeReferenceCard"
 import { TraceView } from "./TraceView"
 import { parseCodeBlocks } from "../lib/parseCodeBlocks"
-import { extractModel } from "../lib/messageUtils"
 import type { ChatMessage } from "../types/chat"
-import type { CanvasContent } from "../types/canvas"
 
 interface MessageBubbleProps {
   message: ChatMessage
   activeCanvasId?: string | null
-  onOpenCanvas?: (content: CanvasContent) => void
+  onOpenCanvas?: (id: string) => void
   onRetry?: (query: string) => void
 }
 
@@ -39,7 +37,6 @@ export function MessageBubble({ message, activeCanvasId, onOpenCanvas, onRetry }
 
   const segments =
     !isUser && !message.pending && !message.isError ? parseCodeBlocks(message.content) : null
-  const model = extractModel(message)
 
   return (
     <div className={`message-enter flex ${isUser ? "justify-end" : "justify-start"}`}>
@@ -104,14 +101,7 @@ export function MessageBubble({ message, activeCanvasId, onOpenCanvas, onRetry }
                   key={i}
                   segment={segment}
                   isActive={activeCanvasId === `${message.id}:${i}`}
-                  onOpen={() =>
-                    onOpenCanvas?.({
-                      id: `${message.id}:${i}`,
-                      language: segment.language,
-                      code: segment.code,
-                      model,
-                    })
-                  }
+                  onOpen={() => onOpenCanvas?.(`${message.id}:${i}`)}
                 />
               ),
             )}

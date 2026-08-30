@@ -11,7 +11,16 @@ interface TooltipProps {
 // depend on a mouse to be discoverable.
 export function Tooltip({ label, children }: TooltipProps) {
   return (
-    <span className="group/tooltip relative inline-flex">
+    <span
+      className="group/tooltip relative inline-flex"
+      // A clicked button keeps browser focus after the click, which
+      // would otherwise pin the tooltip open via group-focus-within
+      // even once the mouse has moved away. Blurring on click leaves
+      // hover as the only trigger post-click, matching what a mouse
+      // user actually expects: the label disappears once they move
+      // away, not "until they click something else".
+      onClickCapture={(e) => (e.target as HTMLElement).blur?.()}
+    >
       {children}
       <span
         role="tooltip"

@@ -2,7 +2,6 @@ import { useEffect, useRef } from "react"
 import { ChatInput } from "./ChatInput"
 import { MessageBubble } from "./MessageBubble"
 import type { ChatMessage } from "../types/chat"
-import type { CanvasContent } from "../types/canvas"
 
 interface ConversationViewProps {
   messages: ChatMessage[]
@@ -11,7 +10,7 @@ interface ConversationViewProps {
   useRag: boolean
   onToggleRag: () => void
   activeCanvasId?: string | null
-  onOpenCanvas: (content: CanvasContent) => void
+  onOpenCanvas: (id: string) => void
 }
 
 export function ConversationView({
