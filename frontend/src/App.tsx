@@ -37,6 +37,7 @@ function App() {
     pending,
     newTask,
     selectSession,
+    renameSession,
     submit,
     documents,
     useRag,
@@ -66,6 +67,7 @@ function App() {
       <div className="flex flex-1 flex-col overflow-hidden">
         <TopBar
           title={activeSession?.title ?? "New task"}
+          onRename={activeSessionId ? (title) => renameSession(activeSessionId, title) : undefined}
           hasCanvas={canvasFiles.length > 0}
           canvasOpen={canvasOpen}
           onToggleCanvas={() => setCanvasOpen((v) => !v)}

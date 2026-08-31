@@ -74,7 +74,7 @@ export function ChatInput({ onSubmit, disabled, useRag, onToggleRag }: ChatInput
   }
 
   return (
-    <div className="w-full rounded-2xl border border-white/10 bg-slate-ember/90 backdrop-blur-sm shadow-[0_20px_50px_-20px_rgba(0,0,0,0.6)]">
+    <div className="w-full rounded-2xl border border-white/15 bg-slate-ember/40 backdrop-blur-xl transition-shadow duration-300 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.08)] focus-within:shadow-[0_20px_50px_-20px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.08),0_0_36px_8px_rgba(217,125,61,0.22)]">
       {attachment && (
         <div className="px-4 pt-3">
           <span className="pop-enter flex w-fit items-center gap-2 rounded-lg border border-white/10 bg-obsidian py-1 pl-1 pr-2.5 text-xs text-ash">
@@ -99,9 +99,10 @@ export function ChatInput({ onSubmit, disabled, useRag, onToggleRag }: ChatInput
               <XIcon className="h-3 w-3" />
             </button>
           </span>
-          {attachmentKind !== "image" && (
+          {attachmentKind === "document" && (
             <p className="mt-1 text-xs text-ash/60">
-              Document reading isn't supported by the agent yet — attached for reference only.
+              .doc/.docx/.txt files aren't read by the agent yet — attached for reference only.
+              Images and PDFs are read in full.
             </p>
           )}
         </div>
