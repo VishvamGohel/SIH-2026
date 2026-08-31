@@ -16,7 +16,7 @@ async def generate_code(task_prompt: str, context: dict) -> str:
             "model": MODEL_NAME,
             "prompt": full_prompt,
             "stream": False,
-            "keep_alive": 0,       # unload immediately — enforced here too, belt & suspenders
+            "keep_alive": "5m",    # was 0 -- see vision_agent.py for why
             "options": {"num_ctx": 8192}
         })
         resp.raise_for_status()

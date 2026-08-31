@@ -17,14 +17,17 @@ semantic-router==0.1.2      # see router.py -- replaces the hand-rolled
 chromadb==0.5.23
 
 # --- PDF / OCR pipeline ---
-pdfplumber==0.11.4
-# PaddleOCR/paddlepaddle intentionally NOT included here -- tools/ocr_tools.py
-# and tools/precache_paddleocr.py (which need it) are described in the
-# build log as already existing from a prior session, but haven't
-# actually been created/touched in this one, and nothing currently built
-# here imports PaddleOCR. Add paddleocr + paddlepaddle back once that
-# module is actually wired in -- pulling them in now just adds a heavy,
-# platform-finicky install for code that doesn't exist yet.
+pdfplumber==0.11.4          # tools/ocr_tools.py -- per-page text extraction
+pymupdf==1.28.2             # vision_agent.py -- renders PDF pages to images
+                            # for the vision model; replaces pdf2image, which
+                            # needs a poppler binary on PATH that isn't
+                            # available on this machine. pymupdf is a
+                            # self-contained wheel, no external binary.
+# PaddleOCR/paddlepaddle intentionally NOT included -- a page with no
+# extractable text layer already falls through to the vision model (see
+# vision_agent.py's TEXT_RICH_PAGE_THRESHOLD path), which reads the
+# rendered page directly. A second, separate OCR engine would be
+# redundant with that path, not a missing piece.
 
 # --- Utility ---
 Pillow==11.0.0              # image handling for vision_agent.py

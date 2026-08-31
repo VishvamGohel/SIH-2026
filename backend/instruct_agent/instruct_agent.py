@@ -135,7 +135,9 @@ async def follow_instruction(
         "model": MODEL_NAME,
         "prompt": prompt,
         "stream": False,
-        "keep_alive": 0,
+        "keep_alive": "5m",    # was 0 -- see vision_agent.py for why (cold-load latency
+        # measured in minutes on this hardware; kept short since general/code/vision
+        # still compete for the same 4GB VRAM budget and can't all stay resident).
         "options": {
             "temperature": temperature,
             "num_ctx": 8192,
