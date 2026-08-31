@@ -28,3 +28,8 @@ pdfplumber==0.11.4
 
 # --- Utility ---
 Pillow==11.0.0              # image handling for vision_agent.py
+
+# --- Test-only (not needed by the running service) ---
+pytest-asyncio               # required for @pytest.mark.asyncio tests to
+                              # actually run instead of silently no-op'ing
+reportlab                    # used by test_vision_agent.py's PDF fixtures

@@ -56,9 +56,9 @@ def fake_file(tmp_path):
 
 
 def test_run_vision_task_default_stores_result(fake_file):
-    with patch("vision.analyze_document", new=AsyncMock(return_value=FAKE_VISION_RESULT)), \
+    with patch("vision_agent.vision.analyze_document", new=AsyncMock(return_value=FAKE_VISION_RESULT)), \
          patch("knowledge.embeddings.OllamaLocalEmbeddingFunction.__call__", _fake_embed):
-        from vision import run_vision_task
+        from vision_agent.vision import run_vision_task
         result = run_vision_task(fake_file, "what do you see", context={})
 
     assert result["observed"] == FAKE_VISION_RESULT["observed"]
@@ -66,9 +66,9 @@ def test_run_vision_task_default_stores_result(fake_file):
 
 
 def test_run_vision_task_opt_out_does_not_store(fake_file):
-    with patch("vision.analyze_document", new=AsyncMock(return_value=FAKE_VISION_RESULT)), \
+    with patch("vision_agent.vision.analyze_document", new=AsyncMock(return_value=FAKE_VISION_RESULT)), \
          patch("knowledge.embeddings.OllamaLocalEmbeddingFunction.__call__", _fake_embed):
-        from vision import run_vision_task
+        from vision_agent.vision import run_vision_task
         from knowledge.retriever import collection_stats
 
         result = run_vision_task(fake_file, "preview only", context={}, store_result=False)
@@ -79,9 +79,9 @@ def test_run_vision_task_opt_out_does_not_store(fake_file):
 
 
 def test_run_vision_task_cross_reference_finds_prior_storage(fake_file):
-    with patch("vision.analyze_document", new=AsyncMock(return_value=FAKE_VISION_RESULT)), \
+    with patch("vision_agent.vision.analyze_document", new=AsyncMock(return_value=FAKE_VISION_RESULT)), \
          patch("knowledge.embeddings.OllamaLocalEmbeddingFunction.__call__", _fake_embed):
-        from vision import run_vision_task
+        from vision_agent.vision import run_vision_task
 
         # first call stores findings (default store_result=True)
         run_vision_task(fake_file, "initial scan", context={}, source_id="scan1")
@@ -97,18 +97,18 @@ def test_run_vision_task_cross_reference_finds_prior_storage(fake_file):
 
 
 def test_run_vision_task_cross_reference_off_by_default(fake_file):
-    with patch("vision.analyze_document", new=AsyncMock(return_value=FAKE_VISION_RESULT)), \
+    with patch("vision_agent.vision.analyze_document", new=AsyncMock(return_value=FAKE_VISION_RESULT)), \
          patch("knowledge.embeddings.OllamaLocalEmbeddingFunction.__call__", _fake_embed):
-        from vision import run_vision_task
+        from vision_agent.vision import run_vision_task
         result = run_vision_task(fake_file, "what do you see", context={})
 
     assert result["prior_findings"] == [], "cross_reference defaults to False, must return empty list"
 
 
 def test_run_vision_task_source_id_defaults_to_filename_stem(fake_file):
-    with patch("vision.analyze_document", new=AsyncMock(return_value=FAKE_VISION_RESULT)), \
+    with patch("vision_agent.vision.analyze_document", new=AsyncMock(return_value=FAKE_VISION_RESULT)), \
          patch("knowledge.embeddings.OllamaLocalEmbeddingFunction.__call__", _fake_embed):
-        from vision import run_vision_task
+        from vision_agent.vision import run_vision_task
         from knowledge.retriever import query_knowledge_with_metadata
 
         run_vision_task(fake_file, "scan", context={})  # no source_id passed
@@ -118,7 +118,7 @@ def test_run_vision_task_source_id_defaults_to_filename_stem(fake_file):
 
 
 def test_run_vision_task_propagates_analyze_document_failure(fake_file):
-    with patch("vision.analyze_document", new=AsyncMock(side_effect=ValueError("no OBSERVED/UNCLEAR block"))):
-        from vision import run_vision_task
+    with patch("vision_agent.vision.analyze_document", new=AsyncMock(side_effect=ValueError("no OBSERVED/UNCLEAR block"))):
+        from vision_agent.vision import run_vision_task
         with pytest.raises(ValueError, match="no OBSERVED/UNCLEAR block"):
             run_vision_task(fake_file, "what do you see", context={})

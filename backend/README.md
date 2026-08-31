@@ -14,11 +14,14 @@ filled in from what was actually needed to get this running for real.
 ## Setup
 
 Uses the same Python venv as `/router` and `/agent` (`../venv`) — no separate
-environment needed. Two packages weren't already installed there:
+environment needed. Packages that weren't already installed there:
 
 ```bash
-../venv/Scripts/python.exe -m pip install fastapi pdfplumber
+../venv/Scripts/python.exe -m pip install fastapi pdfplumber pytest-asyncio reportlab
 ```
+
+(`pytest-asyncio` and `reportlab` are only needed to run `tests/` — not the
+running service itself.)
 
 `semantic-router` is listed in `requirements.txt` but not actually imported
 anywhere (`router.py` is hand-rolled specifically to avoid it) — safe to skip.
@@ -72,6 +75,28 @@ multipart form fields) — see `frontend/src/api/realAgentClient.ts`.
    Fixed the call site to use `question=`/`n=`. This is significant because
    the frontend defaults RAG to *on*, so every first message in a session
    would have failed with this bug present.
+3. **`tests/` couldn't even collect.** `test_vision_agent.py` imported from
+   `vision_agent_file.vision_agent` (a module that doesn't exist in this
+   layout — the real package is `vision_agent/`) and had a hardcoded
+   `sys.path.append('C:/Users/Dharm/Desktop/Sovereign_AI')` left in from a
+   different machine. Fixed the import, removed the hardcoded path. This
+   single error was enough to abort the *entire* test run, not just that
+   file — nothing in `tests/` could run at all before this fix.
+4. **Stale `unittest.mock.patch()` targets throughout `tests/`.** Several
+   tests patched `agents.vision_agent.analyze_image` and
+   `vision.analyze_document` / `from vision import run_vision_task` — none
+   of which exist; the real paths are `vision_agent.vision_agent.*` and
+   `vision_agent.vision.*`. Fixed across `test_vision_agent.py` and
+   `test_vision_task.py`.
+5. **Two missing test-only dependencies**: `pytest-asyncio` (without it,
+   every `@pytest.mark.asyncio` test silently failed instead of actually
+   running) and `reportlab` (used only by test fixtures that build sample
+   PDFs). Neither is needed by the running service, only the test suite.
+
+After these fixes: **20/22 tests pass.** The remaining 2 failures
+(`test_analyze_document_text_rich_pdf_skips_vision_model`,
+`test_analyze_document_sparse_pdf_routes_to_vision`) are a genuinely missing
+module, not a path issue — see below.
 
 ## Known issues NOT fixed here (flag to Dharm)
 
@@ -87,6 +112,13 @@ multipart form fields) — see `frontend/src/api/realAgentClient.ts`.
    wraps it in markdown bold (`**OBSERVED:**`), which it does sometimes, the
    parse fails and the whole request errors out — even though the model read
    the image correctly. Reproduced directly against a real test image.
+2b. **PDF vision support is unbuilt, not just buggy.** `_analyze_pdf()` in
+   `vision_agent.py` unconditionally does `from tools.ocr_tools import
+   extract_text` — `tools/` doesn't exist anywhere in the delivered repo.
+   `requirements.txt` already has a comment acknowledging this (PaddleOCR
+   wiring was planned but never actually done). Any PDF attachment to the
+   vision path will always fail until this module is written. This is the
+   cause of the only 2 remaining test failures after the fixes above.
 3. **Router recall on code queries is inconsistent.** "write a python
    function that checks if a number is prime" routed to `general`, not
    `code` — the general model happened to produce a fenced code block

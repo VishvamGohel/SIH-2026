@@ -8,10 +8,8 @@ Run with: pytest tests/test_vision_agent.py -v
 """
 import asyncio
 import pytest
-import sys
 from unittest.mock import AsyncMock, patch, MagicMock
-sys.path.append('C:/Users/Dharm/Desktop/Sovereign_AI')
-from vision_agent_file.vision_agent import (
+from vision_agent.vision_agent import (
     analyze_image,
     analyze_document,
     _detect_file_type,
@@ -122,7 +120,7 @@ async def test_analyze_document_routes_image_to_analyze_image(tmp_path):
     fake_image.write_bytes(b"fake bytes")
 
     fake_result = {"observed": ["found it"], "unclear": [], "raw": "raw text"}
-    with patch("agents.vision_agent.analyze_image", new=AsyncMock(return_value=fake_result)) as mock_ai:
+    with patch("vision_agent.vision_agent.analyze_image", new=AsyncMock(return_value=fake_result)) as mock_ai:
         result = await analyze_document(str(fake_image), "question", context={})
 
     mock_ai.assert_awaited_once()
@@ -164,7 +162,7 @@ async def test_analyze_document_text_rich_pdf_skips_vision_model(tmp_path):
         vision_calls.append(question)
         return {"observed": ["SHOULD NOT BE CALLED"], "unclear": [], "raw": "x"}
 
-    with patch("agents.vision_agent.analyze_image", new=fake_analyze_image):
+    with patch("vision_agent.vision_agent.analyze_image", new=fake_analyze_image):
         result = await analyze_document(str(pdf_path), "summarize", context={})
 
     assert vision_calls == [], "vision model should not be called for a text-rich page"
@@ -183,7 +181,7 @@ async def test_analyze_document_sparse_pdf_routes_to_vision(tmp_path):
         vision_calls.append(question)
         return {"observed": ["Diagram FIG 3 visible"], "unclear": [], "raw": "vision raw"}
 
-    with patch("agents.vision_agent.analyze_image", new=fake_analyze_image):
+    with patch("vision_agent.vision_agent.analyze_image", new=fake_analyze_image):
         result = await analyze_document(str(pdf_path), "what is shown", context={})
 
     assert len(vision_calls) == 1, "sparse page should trigger exactly one vision call"
