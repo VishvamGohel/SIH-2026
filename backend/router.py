@@ -72,6 +72,23 @@ DEFAULT_CODE_EXAMPLES = [
     "Can you code this up.",
 ]
 
+# Counterbalances DEFAULT_CODE_EXAMPLES -- without this, a short casual
+# question ("Hi, what can you do?") can score above threshold against
+# "Can you code this up." on pure phrasing similarity ("can you...") even
+# though it isn't code-shaped at all (observed live: 0.58 similarity,
+# above the 0.55 threshold, on a plain greeting). route() now requires the
+# best code match to also beat the best general match, not just clear the
+# threshold in isolation.
+DEFAULT_GENERAL_EXAMPLES = [
+    "Hi, what can you do?",
+    "Hello, how are you?",
+    "What can you help me with?",
+    "Summarize this document for me.",
+    "What is the maintenance schedule for this equipment?",
+    "Can you explain how this process works?",
+    "Thanks, that's helpful.",
+]
+
 
 def _load_config() -> dict:
     if not CONFIG_PATH.exists():
@@ -80,15 +97,17 @@ def _load_config() -> dict:
         return json.load(f)
 
 
-def _router_settings(config: dict) -> tuple[list[str], float]:
-    """Resolve code_examples + threshold, falling back to defaults for
-    whichever piece (or all of it) is missing from model_config.json."""
+def _router_settings(config: dict) -> tuple[list[str], list[str], float]:
+    """Resolve code_examples + general_examples + threshold, falling back
+    to defaults for whichever piece (or all of it) is missing from
+    model_config.json."""
     router_cfg = config.get("router", {})
     code_examples = router_cfg.get("code_examples") or DEFAULT_CODE_EXAMPLES
+    general_examples = router_cfg.get("general_examples") or DEFAULT_GENERAL_EXAMPLES
     threshold = router_cfg.get(
         "code_confidence_threshold", DEFAULT_CODE_CONFIDENCE_THRESHOLD
     )
-    return code_examples, threshold
+    return code_examples, general_examples, threshold
 
 
 _embedding_cache: dict[tuple[str, str], list[float]] = {}
@@ -127,26 +146,35 @@ def route(query: str, config: Optional[dict] = None) -> dict:
 
         confidence is the query's HIGHEST cosine similarity against any
         single code example (not an average -- see module docstring for
-        why that changed). role is "code" only if that max score clears
-        the configured threshold -- otherwise "general", which stays the
+        why that changed). role is "code" only if that max score BOTH
+        clears the configured threshold AND beats the best match against
+        DEFAULT_GENERAL_EXAMPLES -- otherwise "general", which stays the
         safe default: a general call on a code-ish prompt just answers
         (or flags insufficient context) rather than failing outright,
         while a coder call on a non-code prompt risks generating/running
-        code nobody asked for.
+        code nobody asked for. The general-side comparison exists because
+        a threshold check against code examples alone lets short casual
+        phrasing ("Hi, what can you do?") false-positive on lexical
+        similarity to a code example ("Can you code this up.") even
+        though the two aren't semantically related.
     """
     config = config if config is not None else _load_config()
-    code_examples, threshold = _router_settings(config)
+    code_examples, general_examples, threshold = _router_settings(config)
 
     embedding_model = (
         config.get("models", {}).get("embedding", {}).get("ollama_tag", "nomic-embed-text")
     )
 
     query_vec = _embed(query, embedding_model)
-    scores = [
+    code_scores = [
         _cosine_similarity(query_vec, _embed(example, embedding_model))
         for example in code_examples
     ]
-    confidence = max(scores)
+    general_scores = [
+        _cosine_similarity(query_vec, _embed(example, embedding_model))
+        for example in general_examples
+    ]
+    confidence = max(code_scores)
 
-    role = "code" if confidence >= threshold else "general"
+    role = "code" if confidence >= threshold and confidence > max(general_scores) else "general"
     return {"role": role, "confidence": confidence}

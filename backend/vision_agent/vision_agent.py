@@ -9,6 +9,14 @@ from pathlib import Path
 OLLAMA_URL = "http://localhost:11434/api/generate"
 MODEL_NAME = "eng-vision"
 
+# 180s was measured too short on the target hardware (Section 3 of
+# CLAUDE.md: 4GB dedicated VRAM / CPU-only) -- a cold load of eng-vision
+# alone measured ~4.5 minutes end to end (keep_alive is now "5m", not 0,
+# but the FIRST call after any idle period is still a cold load). 600s
+# gives headroom without hanging forever on a genuinely dead Ollama
+# instance.
+VISION_TIMEOUT_SECONDS = 600
+
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".tif", ".webp"}
 PDF_EXTENSIONS = {".pdf"}
 
@@ -31,13 +39,25 @@ async def analyze_image(image_path: str, question: str, context: dict) -> dict:
     with open(image_path, "rb") as f:
         image_b64 = base64.b64encode(f.read()).decode()
 
-    async with httpx.AsyncClient(timeout=180) as client:
+    async with httpx.AsyncClient(timeout=VISION_TIMEOUT_SECONDS) as client:
         resp = await client.post(OLLAMA_URL, json={
             "model": MODEL_NAME,
             "prompt": question,
             "images": [image_b64],
             "stream": False,
-            "keep_alive": 0,       # unload immediately — enforced here too, belt & suspenders
+            "think": False,        # eng-vision (qwen3.5) is thinking-capable;
+            # observed live spending its entire num_predict budget on the
+            # <think> block and returning an EMPTY "response" (done_reason
+            # "length") -- this task just needs the structured OBSERVED/
+            # UNCLEAR answer, not a reasoning trace, so skip it entirely.
+            "keep_alive": "5m",    # was 0 (unload immediately) -- on this hardware every
+            # call was a full cold load from disk (measured 1-4+ minutes). Only one of
+            # general/code/vision fits in the 4GB VRAM budget at a time regardless, so
+            # this doesn't cause contention beyond what already exists -- it just avoids
+            # reloading THIS model if it's called again (e.g. a second vision question,
+            # or the follow-up general-model call in orchestrator.py's vision answer
+            # step) within 5 minutes. Also means a pre-demo warm-up query genuinely
+            # keeps the model warm instead of unloading the instant it responds.
             "options": {"num_ctx": 8192, "temperature": 0.1}
         })
         resp.raise_for_status()
@@ -60,7 +80,7 @@ async def analyze_document(file_path: str, question: str, context: dict) -> dict
 
 async def _analyze_pdf(pdf_path: str, question: str, context: dict) -> dict:
     from tools.ocr_tools import extract_text as ocr_extract_text
-    from pdf2image import convert_from_path
+    import fitz  # PyMuPDF -- pure-Python PDF rendering, no poppler binary needed
 
     extraction = ocr_extract_text(pdf_path)
     text_by_page = {p.page_number: p.text for p in extraction.pages}
@@ -69,7 +89,11 @@ async def _analyze_pdf(pdf_path: str, question: str, context: dict) -> dict:
     all_unclear: list[str] = []
     raw_chunks: list[str] = []
 
-    images = convert_from_path(pdf_path, dpi=200)
+    doc = fitz.open(pdf_path)
+    try:
+        images = [page.get_pixmap(dpi=200) for page in doc]
+    finally:
+        doc.close()
 
     for i, img in enumerate(images, start=1):
         page_text = text_by_page.get(i, "")
@@ -89,9 +113,12 @@ async def _analyze_pdf(pdf_path: str, question: str, context: dict) -> dict:
 
         tmp_path = None
         try:
-            with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
-                img.save(tmp.name)
-                tmp_path = tmp.name
+            fd, tmp_path = tempfile.mkstemp(suffix=".png")
+            os.close(fd)  # release the handle before img.save() -- MuPDF's
+            # pixmap writer removes-then-recreates the target file, which
+            # fails with a Windows file-lock error if we're still holding
+            # it open (as tempfile.NamedTemporaryFile would).
+            img.save(tmp_path)
             page_result = await analyze_image(tmp_path, augmented_question, context)
         finally:
             if tmp_path and os.path.exists(tmp_path):

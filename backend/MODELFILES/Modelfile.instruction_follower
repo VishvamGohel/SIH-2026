@@ -1,5 +1,5 @@
 # Modelfile.general
-FROM alibayram/smollm3:latest
+FROM qwen3:1.7b
 
 PARAMETER num_ctx 2048
 PARAMETER temperature 0.3

@@ -93,6 +93,15 @@ export function useAgentChat({ onMessageResolved }: UseAgentChatOptions = {}) {
     setActiveSessionId(id)
   }, [])
 
+  // User-driven rename (top bar) -- overrides the auto-derived title from
+  // the first query. Sidebar reads the same `sessions` state, so it picks
+  // up the new title for free, no separate sync needed.
+  const renameSession = useCallback((id: string, title: string) => {
+    const trimmed = truncateTitle(title, 60)
+    if (!trimmed) return
+    setSessions((prev) => prev.map((s) => (s.id === id ? { ...s, title: trimmed } : s)))
+  }, [])
+
   const submit = useCallback(
     async (query: string, attachments: File[]) => {
       const attachmentNames = attachments.map((f) => f.name)
@@ -204,6 +213,7 @@ export function useAgentChat({ onMessageResolved }: UseAgentChatOptions = {}) {
     pending,
     newTask,
     selectSession,
+    renameSession,
     submit,
     documents,
     useRag,
